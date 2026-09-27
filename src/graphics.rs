@@ -108,28 +108,37 @@ pub fn draw_line<T: Bitmap>(
 
 pub fn lookup_font(c: char) -> Option<[[char; 8]; 16]> {
     const FONT_SOURCE: &str = include_str!("./font.txt");
-    if let Ok(c) = u8::try_from(c) {
-        let mut fi = FONT_SOURCE.split('\n');
-        while let Some(line) = fi.next() {
-            if let Some(line) = line.strip_prefix("0x") {
-                if let Ok(idx) = u8::from_str_radix(line, 16) {
-                    if idx != c {
-                        continue;
-                    }
-                    let mut font = [['*'; 8]; 16];
-                    for (y, line) in fi.clone().take(16).enumerate() {
-                        for (x, c) in line.chars().enumerate() {
-                            if let Some(e) = font[y].get_mut(x) {
-                                *e = c;
+    static mut FONT_CACHE: Option<[[[char; 8]; 16]; 256]> = None;
+    let code = c as u32;
+    if code > 0xFF {
+        return None;
+    }
+    let idx = code as u8 as usize;
+    // Initialize cache if needed
+    let font_table = unsafe {
+        FONT_CACHE.get_or_insert_with(|| {
+            let mut font = [[[' '; 8]; 16]; 256];
+            let mut lines = FONT_SOURCE.lines();
+            while let Some(line) = lines.next() {
+                if let Some(rest) = line.strip_prefix("0x") {
+                    let rest = rest.trim();
+                    if let Ok(byte) = u8::from_str_radix(rest, 16) {
+                        let mut glyph = [[' '; 8]; 16];
+                        for y in 0..16 {
+                            if let Some(l) = lines.next() {
+                                for (x, ch) in l.chars().enumerate().take(8) {
+                                    glyph[y][x] = ch;
+                                }
                             }
                         }
+                        font[byte as usize] = glyph;
                     }
-                    return Some(font);
                 }
             }
-        }
-    }
-    None
+            font
+        })
+    };
+    Some(font_table[idx])
 }
 
 pub fn draw_font_fg<T: Bitmap>(buf: &mut T, x: i64, y: i64, color: u32, c: char) {
