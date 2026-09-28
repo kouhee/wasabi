@@ -57,7 +57,7 @@ pub enum EfiMemoryType {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct EfiMemoryDescriptor {
     memory_type: EfiMemoryType,
-    pysical_start: u64,
+    physical_start: u64,
     virtual_start: u64,
     number_of_pages: u64,
     attribute: u64,
@@ -67,17 +67,17 @@ impl EfiMemoryDescriptor {
         self.memory_type
     }
     pub fn physical_start(&self) -> usize {
-        self.pysical_start as usize
+        self.physical_start as usize
     }
     pub fn number_of_pages(&self) -> usize {
         self.number_of_pages as usize
     }
 }
 
-const MEMORY_MAP_BUFFER_SZIE: usize = 0x8000;
+const MEMORY_MAP_BUFFER_SIZE: usize = 0x8000;
 
 pub struct MemoryMapHolder {
-    memory_map_buffer: [u8; MEMORY_MAP_BUFFER_SZIE],
+    memory_map_buffer: [u8; MEMORY_MAP_BUFFER_SIZE],
     memory_map_size: usize,
     map_key: usize,
     descriptor_size: usize,
@@ -105,8 +105,8 @@ impl<'a> Iterator for MemoryMapIterator<'a> {
 impl MemoryMapHolder {
     pub const fn new() -> MemoryMapHolder {
         MemoryMapHolder {
-            memory_map_buffer: [0; MEMORY_MAP_BUFFER_SZIE],
-            memory_map_size: MEMORY_MAP_BUFFER_SZIE,
+            memory_map_buffer: [0; MEMORY_MAP_BUFFER_SIZE],
+            memory_map_size: MEMORY_MAP_BUFFER_SIZE,
             map_key: 0,
             descriptor_size: 0,
             descriptor_version: 0,
@@ -141,7 +141,7 @@ const _: () = assert!(offset_of!(EfiBootServicesTable, exit_boot_services) == 23
 const _: () = assert!(offset_of!(EfiBootServicesTable, locate_protocol) == 320);
 
 impl EfiBootServicesTable {
-    pub fn get_mamory_map(&self, map: &mut MemoryMapHolder) -> EfiStatus {
+    pub fn get_memory_map(&self, map: &mut MemoryMapHolder) -> EfiStatus {
         (self.get_memory_map)(
             &mut map.memory_map_size,
             map.memory_map_buffer.as_mut_ptr(),
@@ -275,7 +275,7 @@ pub fn exit_from_efi_boot_services(
     memory_map: &mut MemoryMapHolder,
 ) {
     loop {
-        let status = efi_system_table.boot_services.get_mamory_map(memory_map);
+        let status = efi_system_table.boot_services.get_memory_map(memory_map);
         assert_eq!(status, EfiStatus::Success);
         let status =
             (efi_system_table.boot_services.exit_boot_services)(image_handle, memory_map.map_key);
