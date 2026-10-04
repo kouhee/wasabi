@@ -15,7 +15,6 @@ use wasabi::print::hexdump;
 use wasabi::println;
 use wasabi::qemu::exit_qemu;
 use wasabi::qemu::QemuExitCode;
-use wasabi::uefi::exit_from_efi_boot_services;
 use wasabi::uefi::init_vram;
 use wasabi::uefi::EfiHandle;
 use wasabi::uefi::EfiMemoryType;
@@ -23,6 +22,8 @@ use wasabi::uefi::EfiSystemTable;
 use wasabi::uefi::VramTextWriter;
 use wasabi::warn;
 use wasabi::x86::hlt;
+use wasabi::x86::init_exceptions;
+use wasabi::x86::trigger_debug_interrupt;
 
 #[no_mangle]
 fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
@@ -33,17 +34,36 @@ fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
     warn!("warn");
     error!("error");
     hexdump(efi_system_table);
-    let mut vram = init_vram(efi_system_table).expect("Failed to initialize VRAM");
-
+    // Print boot services pointer and a few entries (smaller dump)
+    println!(
+        "boot_services ptr: {:#018X}",
+        efi_system_table.boot_services as *const _ as usize
+    );
+    println!("before init_vram");
+    unsafe {
+        let p = efi_system_table.boot_services as *const _ as *const u8 as *const u64;
+        for i in 0..8 {
+            println!("bs[{}] = {:#018X}", i, *p.add(i));
+        }
+    }
+    let mut vram = match init_vram(efi_system_table) {
+        Ok(v) => {
+            println!("init_vram ok");
+            v
+        }
+        Err(e) => {
+            println!("init_vram failed: {e}");
+            exit_qemu(QemuExitCode::Fail);
+        }
+    };
     let vw = vram.width();
     let vh = vram.height();
-
-    fill_rect(&mut vram, 0x000000, 0, 0, vw, vh).expect("Failed to fill rect");
-
+    fill_rect(&mut vram, 0x000000, 0, 0, vw, vh).expect("fill rect failed");
     draw_test_pattern(&mut vram);
-
     let mut w = VramTextWriter::new(&mut vram);
-    let mut memory_map = init_basic_runtime(image_handle, efi_system_table);
+    println!("after init_vram");
+
+    let memory_map = init_basic_runtime(image_handle, efi_system_table);
     let mut total_memory_pages = 0;
     for e in memory_map.iter() {
         if e.memory_type() != EfiMemoryType::CONVENTIONAL_MEMORY {
@@ -58,8 +78,24 @@ fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
         "Total:  {total_memory_pages} pages, {total_memory_size_mib} MiB"
     )
     .unwrap();
-    exit_from_efi_boot_services(image_handle, efi_system_table, &mut memory_map);
+    // exit_from_efi_boot_services(image_handle, efi_system_table, &mut memory_map);
     writeln!(w, "Hell, Non-UEFI world!").unwrap();
+    let cr3 = wasabi::x86::read_cr3();
+    println!("CR3: {cr3:#p}");
+    // hexdump(unsafe { &*cr3 });
+    let t = Some(unsafe { &*cr3 });
+    println!("{t:?}");
+    let t = t.and_then(|t| t.next_level(0));
+    println!("{t:?}");
+    let t = t.and_then(|t| t.next_level(0));
+    println!("{t:?}");
+    let t = t.and_then(|t| t.next_level(0));
+    println!("{t:?}");
+
+    let (_gdt, _idt) = init_exceptions();
+    info!("Exeptions initialized");
+    trigger_debug_interrupt();
+
     loop {
         hlt();
     }
