@@ -11,25 +11,35 @@ use wasabi::graphics::fill_rect;
 use wasabi::graphics::Bitmap;
 use wasabi::info;
 use wasabi::init::init_basic_runtime;
+use wasabi::init::init_paging;
 use wasabi::print::hexdump;
 use wasabi::println;
 use wasabi::qemu::exit_qemu;
 use wasabi::qemu::QemuExitCode;
 use wasabi::uefi::init_vram;
+use wasabi::uefi::locate_loaded_image_protocol;
 use wasabi::uefi::EfiHandle;
 use wasabi::uefi::EfiMemoryType;
+use wasabi::uefi::EfiMemoryType::LOADER_CORE;
 use wasabi::uefi::EfiSystemTable;
 use wasabi::uefi::VramTextWriter;
 use wasabi::warn;
+use wasabi::x86::flush_tlb;
 use wasabi::x86::hlt;
 use wasabi::x86::init_exceptions;
+use wasabi::x86::read_cr3;
 use wasabi::x86::trigger_debug_interrupt;
+use wasabi::x86::PageAttr;
 
 #[no_mangle]
 fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
     println!("Booting wasabiOS...");
     println!("image_handle: {:#018X}", image_handle);
     println!("efi_system_table: {:#p}", efi_system_table);
+    let loaded_image_protocol = locate_loaded_image_protocol(image_handle, efi_system_table)
+        .expect("Failed to locate loaded image protocol");
+    println!("image_base: {:#018X}", loaded_image_protocol.image_base);
+    println!("image_size: {:#018X}", loaded_image_protocol.image_size);
     info!("info");
     warn!("warn");
     error!("error");
@@ -79,7 +89,7 @@ fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
     )
     .unwrap();
     // exit_from_efi_boot_services(image_handle, efi_system_table, &mut memory_map);
-    writeln!(w, "Hell, Non-UEFI world!").unwrap();
+    writeln!(w, "Hello, Non-UEFI world!").unwrap();
     let cr3 = wasabi::x86::read_cr3();
     println!("CR3: {cr3:#p}");
     // hexdump(unsafe { &*cr3 });
@@ -95,6 +105,29 @@ fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
     let (_gdt, _idt) = init_exceptions();
     info!("Exeptions initialized");
     trigger_debug_interrupt();
+    info!("Execution continued.");
+    init_paging(&memory_map);
+    info!("Now we are using our own page tables");
+
+    info!("Handling from memory address 0...");
+
+    // #[allow(clippy::zero_ptr)]
+    // #[allow(deref_nullptr)]
+    // let value_at_zero = unsafe { *(0 as *const u8) };
+    // info!("value_at_zero = {value_at_zero}");
+
+    let page_table = read_cr3();
+    unsafe {
+        (*page_table)
+            .create_mapping(0, 4096, 0, PageAttr::NotPresent)
+            .expect("Failed to create mapping for address 0");
+    }
+    flush_tlb();
+    // info!("Reading from memory address 0...(again)");
+    // #[allow(clippy::zero_ptr)]
+    // #[allow(deref_nullptr)]
+    // let value_at_zero = unsafe { *(0 as *const u8) };
+    // info!("value_at_zero = {value_at_zero}");
 
     loop {
         hlt();
