@@ -288,12 +288,12 @@ macro_rules! interrupt_entrypoint {
             "interrupt_entrypoint",
             stringify!($index),
             ":\n",
-            "push 0 // No error code\n",
-            "push rcx // Save rcx first to reuse\n",
+            "push 0\n",
+            "push rcx\n",
             "mov rcx, ",
             stringify!($index),
             "\n",
-            "jmp inthandler_common"
+            "jmp inthandler_common\n"
         ));
     };
 }
@@ -306,11 +306,11 @@ macro_rules! interrupt_entrypoint_with_ecode {
             "interrupt_entrypoint",
             stringify!($index),
             ":\n",
-            "push rcx // Save rcx first to reuse\n",
+            "push rcx\n",
             "mov rcx, ",
             stringify!($index),
             "\n",
-            "jmp inthandler_common"
+            "jmp inthandler_common\n"
         ));
     };
 }
@@ -397,6 +397,7 @@ extern "sysv64" fn inthandler(info: &InterruptInfo, index: usize) {
     match index {
         3 => {
             error!("Breakpoint");
+            return;
         }
         6 => {
             error!("Invalid Opcode");
