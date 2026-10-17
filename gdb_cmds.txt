@@ -1,0 +1,13 @@
+set pagination off
+target remote :1234
+set confirm off
+handle SIGILL stop print pass
+handle SIGSEGV stop print pass
+continue
+# When it stops, collect state
+info registers
+bt
+x/32i $rip
+x/64xb 0xa0030
+x/64xb $rsp
+quit

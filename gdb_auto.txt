@@ -1,0 +1,14 @@
+# gdb_auto.txt -- 自動実行スクリプト
+set pagination off
+set architecture i386:x86-64
+# 'FILE_TO_DEBUG' を gdb 実行時に file コマンドで指定するか後で指定してください
+target remote :1234
+set disassembly-flavor intel
+handle SIGILL stop print pass
+handle SIGSEGV stop print pass
+handle SIGTRAP stop print pass
+set logging file gdb_dump.txt
+set logging on
+continue
+
+
