@@ -833,5 +833,5 @@ pub fn trigger_debug_interrupt() {
 
 #[no_mangle]
 pub unsafe fn write_cr3(table: *const PML4) {
-    asm!("mov cr3 rax", in("rax") table)
+    asm!("mov cr3, rax", in("rax") (table as u64));
 }
