@@ -377,7 +377,7 @@ global_asm!(
     pop r15
 
     pop rcx
-    and rsp, 8
+    add rsp, 8
     iretq
     "#
 );
