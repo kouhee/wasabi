@@ -207,13 +207,13 @@ impl PML4 {
             return Err("Invalid phys");
         }
         for addr in (virt_start..virt_end).step_by(PAGE_SIZE) {
-            let index = self.calc_index(addr);
+            let index = self.calc_index(addr as usize);
             let table = self.entry[index].ensure_populated()?.table_mut()?;
-            let index = table.calc_index(addr);
+            let index = table.calc_index(addr as usize);
             let table = table.entry[index].ensure_populated()?.table_mut()?;
-            let index = table.calc_index(addr);
+            let index = table.calc_index(addr as usize);
             let table = table.entry[index].ensure_populated()?.table_mut()?;
-            let index = table.calc_index(addr);
+            let index = table.calc_index(addr as usize);
             let pte = &mut table.entry[index];
             pte.set_page(phys + (addr - virt_start), attr)?;
         }
