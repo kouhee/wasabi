@@ -8,7 +8,7 @@ pub struct SerialPort {
 }
 impl SerialPort {
     pub fn new(base: u16) -> Self {
-        SerialPort { base: base }
+        SerialPort { base }
     }
     pub fn new_for_com1() -> Self {
         SerialPort::new(0x3F8)
