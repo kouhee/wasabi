@@ -124,10 +124,10 @@ pub fn lookup_font(c: char) -> Option<[[char; 8]; 16]> {
                     let rest = rest.trim();
                     if let Ok(byte) = u8::from_str_radix(rest, 16) {
                         let mut glyph = [[' '; 8]; 16];
-                        for y in 0..16 {
-                            if let Some(l) = lines.next() {
-                                for (x, ch) in l.chars().enumerate().take(8) {
-                                    glyph[y][x] = ch;
+                        for row in &mut glyph {
+                            if let Some(line) = lines.next() {
+                                for (cell, ch) in row.iter_mut().zip(line.chars().take(8)) {
+                                    *cell = ch;
                                 }
                             }
                         }
