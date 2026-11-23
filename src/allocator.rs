@@ -167,8 +167,8 @@ impl FirstFitAllocator {
         }
     }
     fn addr_free_from_descriptor(&self, desc: &EfiMemoryDescriptor) {
-        let mut start_addr = desc.physical_start() as usize;
-        let mut size = desc.number_of_pages() as usize * 4096;
+        let mut start_addr = desc.physical_start();
+        let mut size = desc.number_of_pages() * 4096;
         if start_addr == 0 {
             start_addr += 4096;
             size = size.saturating_sub(4096);

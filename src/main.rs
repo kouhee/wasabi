@@ -2,40 +2,32 @@
 #![no_main]
 #![feature(offset_of)]
 
-use core::fmt::Write;
 use core::panic::PanicInfo;
 use core::time::Duration;
-use core::writeln;
 use wasabi::error;
 use wasabi::executor::Executor;
 use wasabi::executor::Task;
 use wasabi::executor::TimeoutFuture;
-use wasabi::graphics::draw_test_pattern;
-use wasabi::graphics::fill_rect;
-use wasabi::graphics::Bitmap;
 use wasabi::hpet::global_timestamp;
-use wasabi::hpet::set_global_hpet;
-use wasabi::hpet::Hpet;
 use wasabi::info;
+use wasabi::init::init_allocator;
 use wasabi::init::init_basic_runtime;
+use wasabi::init::init_display;
+use wasabi::init::init_hpet;
 use wasabi::init::init_paging;
 use wasabi::print::hexdump;
+use wasabi::print::set_global_vram;
 use wasabi::println;
 use wasabi::qemu::exit_qemu;
 use wasabi::qemu::QemuExitCode;
 use wasabi::uefi::init_vram;
 use wasabi::uefi::locate_loaded_image_protocol;
 use wasabi::uefi::EfiHandle;
-use wasabi::uefi::EfiMemoryType;
 use wasabi::uefi::EfiSystemTable;
-use wasabi::uefi::VramTextWriter;
+//use wasabi::uefi::VramTextWriter;
 use wasabi::warn;
-use wasabi::x86::flush_tlb;
-use wasabi::x86::hlt;
+// use wasabi::x86::hlt;
 use wasabi::x86::init_exceptions;
-use wasabi::x86::read_cr3;
-use wasabi::x86::trigger_debug_interrupt;
-use wasabi::x86::PageAttr;
 
 #[no_mangle]
 fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
@@ -72,74 +64,21 @@ fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
             exit_qemu(QemuExitCode::Fail);
         }
     };
-    let vw = vram.width();
-    let vh = vram.height();
-    fill_rect(&mut vram, 0x000000, 0, 0, vw, vh).expect("fill rect failed");
-    draw_test_pattern(&mut vram);
-    let mut w = VramTextWriter::new(&mut vram);
+    init_display(&mut vram);
+    set_global_vram(vram);
     println!("after init_vram");
     let acpi = efi_system_table
         .acpi_table()
         .expect("Failed to get ACPI table");
 
     let memory_map = init_basic_runtime(image_handle, efi_system_table);
-    let mut total_memory_pages = 0;
-    for e in memory_map.iter() {
-        if e.memory_type() != EfiMemoryType::CONVENTIONAL_MEMORY {
-            continue;
-        }
-        total_memory_pages += e.number_of_pages();
-        writeln!(w, "{e:?}").unwrap();
-    }
-    let total_memory_size_mib = total_memory_pages * 4096 / 1024 / 1024;
-    writeln!(
-        w,
-        "Total:  {total_memory_pages} pages, {total_memory_size_mib} MiB"
-    )
-    .unwrap();
+    init_allocator(&memory_map);
     // exit_from_efi_boot_services(image_handle, efi_system_table, &mut memory_map);
-    writeln!(w, "Hello, Non-UEFI world!").unwrap();
-    let cr3 = wasabi::x86::read_cr3();
-    println!("CR3: {cr3:#p}");
-    // hexdump(unsafe { &*cr3 });
-    let t = Some(unsafe { &*cr3 });
-    println!("{t:?}");
-    let t = t.and_then(|t| t.next_level(0));
-    println!("{t:?}");
-    let t = t.and_then(|t| t.next_level(0));
-    println!("{t:?}");
-    let t = t.and_then(|t| t.next_level(0));
-    println!("{t:?}");
+    info!("Hello, Non-UEFI world!");
 
     let (_gdt, _idt) = init_exceptions();
-    info!("Exeptions initialized");
-    trigger_debug_interrupt();
-    info!("Execution continued.");
     init_paging(&memory_map);
-    info!("Now we are using our own page tables");
-
-    info!("Handling from memory address 0...");
-
-    // #[allow(clippy::zero_ptr)]
-    // #[allow(deref_nullptr)]
-    // let value_at_zero = unsafe { *(0 as *const u8) };
-    // info!("value_at_zero = {value_at_zero}");
-
-    let page_table = read_cr3();
-    unsafe {
-        (*page_table)
-            .create_mapping(0, 4096, 0, PageAttr::NotPresent)
-            .expect("Failed to create mapping for address 0");
-    }
-    flush_tlb();
-
-    let hpet = acpi.hpet().expect("Failed to get HPET table");
-    let hpet = hpet
-        .base_address()
-        .expect("Failed to get HPET base address");
-    info!("HPET is at {hpet:#p}");
-    let hpet = unsafe { Hpet::new(hpet) };
-    set_global_hpet(hpet);
+    init_hpet(acpi);
     let t0 = global_timestamp();
     let task1 = Task::new(async move {
         for i in 100..103 {
@@ -165,9 +104,9 @@ fn efi_main(image_handle: EfiHandle, efi_system_table: &EfiSystemTable) {
     // let value_at_zero = unsafe { *(0 as *const u8) };
     // info!("value_at_zero = {value_at_zero}");
 
-    loop {
-        hlt();
-    }
+    // loop {
+    //     hlt();
+    // }
 }
 
 #[panic_handler]
