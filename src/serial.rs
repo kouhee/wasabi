@@ -17,7 +17,7 @@ impl SerialPort {
         write_io_port_u8(self.base + 1, 0x00); // Disable all interrupts
         write_io_port_u8(self.base + 3, 0x80); // Enable DLAB (set baud rate divisor)
         const BAUD_DIVISOR: u16 = 0x0001;
-        write_io_port_u8(self.base + 0, (BAUD_DIVISOR & 0xFF) as u8); // Set divisor (lo byte) to 1 (115200 baud)
+        write_io_port_u8(self.base, (BAUD_DIVISOR & 0xFF) as u8); // Set divisor (lo byte) to 1 (115200 baud)
         write_io_port_u8(self.base + 1, (BAUD_DIVISOR >> 8) as u8); // Set divisor (hi byte) to 0
         write_io_port_u8(self.base + 3, 0x03); //
         write_io_port_u8(self.base + 2, 0xC7); // Enable FIFO, clear them, with 14-byte threshold

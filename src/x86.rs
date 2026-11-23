@@ -167,7 +167,7 @@ impl<const LEVEL: usize, const SHIFT: usize, NEXT: core::fmt::Debug> Table<LEVEL
         self.entry.get(index).and_then(|e| e.table().ok())
     }
     fn calc_index(&self, addr: usize) -> usize {
-        ((addr >> SHIFT) & 0b1_1111_1111) as usize
+        (addr >> SHIFT) & 0b1_1111_1111
     }
 }
 impl<const LEVEL: usize, const SHIFT: usize, NEXT: fmt::Debug> fmt::Debug
@@ -220,11 +220,14 @@ impl PML4 {
         Ok(())
     }
 }
+
+/// # Safety
 pub unsafe fn write_es(selector: u16) {
     asm!(
     "mov es, ax", in("ax") selector)
 }
 
+/// # Safety
 pub unsafe fn write_cs(cs: u16) {
     asm!("lea rax, [rip + 2f]",
         "push cx",
@@ -235,21 +238,25 @@ pub unsafe fn write_cs(cs: u16) {
         in("cx") cs)
 }
 
+/// # Safety
 pub unsafe fn write_ss(selector: u16) {
     asm!(
     "mov ss, ax", in("ax") selector)
 }
 
+/// # Safety
 pub unsafe fn write_ds(ds: u16) {
     asm!(
     "mov ds, ax", in("ax") ds)
 }
 
+/// # Safety
 pub unsafe fn write_fs(selector: u16) {
     asm!(
     "mov fs, ax", in("ax") selector)
 }
 
+/// # Safety
 pub unsafe fn write_gs(selector: u16) {
     asm!("mov gs, ax", in("ax") selector)
 }
@@ -831,6 +838,7 @@ pub fn trigger_debug_interrupt() {
     }
 }
 
+/// # Safety
 #[no_mangle]
 pub unsafe fn write_cr3(table: *const PML4) {
     asm!("mov cr3, rax", in("rax") (table as u64));
