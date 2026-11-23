@@ -174,7 +174,7 @@ pub fn draw_test_pattern<T: Bitmap>(buf: &mut T) {
     let points = [(0, 0), (0, w), (w, 0), (w, w)];
     for (x0, y0) in points.iter() {
         for (x1, y1) in points.iter() {
-            let _ = draw_line(buf, 0xffffff, left + *x0, *y0, left + *x1, *y1)
+            draw_line(buf, 0xffffff, left + *x0, *y0, left + *x1, *y1)
                 .expect("Failed to draw line");
         }
     }
